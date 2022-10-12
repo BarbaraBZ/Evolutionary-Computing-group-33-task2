@@ -26,6 +26,7 @@ mutation = 0.2          # mutation rate
 tournament_size = 5     # tournament size for survivor selection
 kill_percentage = 0.25  # percentage of population to kill during purge
 runs = 1
+threshold = 0.5         # how close best solutions must be to be considered not improved
 arch_size = 20
 distance = 2
 
@@ -132,7 +133,7 @@ def mutate(offspring, gen):
 
 # tournament for survivor selection
 def tournament(pop, fit_pop, k):
-    individuals = pop.shape[0]
+    individuals = pop_size
     winner = np.random.randint(0, individuals)
     score = fit_pop[winner]
     for i in range(k-1):
@@ -216,7 +217,9 @@ if __name__ == "__main__":
 
         # starting the actual evolution
         last_sol = fit_pop[best] # best result of the first generation
-        notimproved = 0 # part of purge
+        doom = 0 # part of purge
+        notimproved = 0
+        stop = False
 
         for i in range(ini_g+1, gens):
             # create offspring
@@ -259,10 +262,10 @@ if __name__ == "__main__":
             fit_pop = total_fit[chosen]
 
             # purge part of the population every 10 generations
-            notimproved += 1
-            if notimproved >= 10:
+            doom += 1
+            if doom >= 10:
                 pop, fit_pop = purge(pop, fit_pop)
-                notimproved = 0
+                doom = 0
 
             best = np.argmax(fit_pop)   # highest fitness in the new population
             std = np.std(fit_pop)       # std of fitness in the new population
@@ -271,6 +274,16 @@ if __name__ == "__main__":
             if fit_pop[best] >= total_best_fitness:
                 total_best = pop[best]
                 total_best_fitness = fit_pop[best]
+
+            if abs(fit_pop[best] - last_sol) < threshold:
+                notimproved += 1
+            else:
+                last_sol = fit_pop[best]
+                notimproved = 0
+
+            if notimproved >= 5:
+                print("No more improvement")
+                stop = True
 
             # save results
             file_aux  = open(experiment_name+'/results.txt','a')
@@ -291,15 +304,12 @@ if __name__ == "__main__":
             env.update_solutions(solutions)
             env.save_state()
 
+            if stop:
+                break
+
         # end timer and print
         fim = time.time()
         print( '\nExecution time: '+str(round((fim-ini)/60))+' minutes \n')
-
-        print(arch)
-
-        plt.scatter(arch[:,0], arch[:,1])
-        plt.savefig('test.png')
-        plt.show()
 
         file = open(experiment_name+'/neuroended', 'w')  # saves control (simulation has ended) file for bash loop file
         file.close()

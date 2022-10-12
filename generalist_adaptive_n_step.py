@@ -19,14 +19,15 @@ if headless:
     os.environ["SDL_VIDEODRIVER"] = "dummy"
 
 hidden = 10             # number of hidden nodes in the neural network
-pop_size = 100           # population size
-gens = 30                # number of generations
+pop_size = 10           # population size
+gens = 10                # number of generations
 Li = -1                 # lower bound for network weights
 Ui = 1                  # upper bound for network weights
 mutation = 0.2          # mutation rate
 tournament_size = 5     # tournament size for survivor selection
 kill_percentage = 0.25  # percentage of population to kill during purge
 runs = 1
+threshold = 0.5         # how close best solutions must be to be considered not improved
 arch_size = 20
 distance = 2
 
@@ -94,7 +95,7 @@ def sim(x):
         ehealth.append(eh)
         time.append(t)
     # fit_measure = 100 - np.mean(ehealth) - np.std(ehealth)
-    fitnesses = [100-ehealth[i] for i in range(len(env.enemies))]
+    fitnesses = [phealth[i]-ehealth[i] for i in range(len(env.enemies))]
     # fit_measure = 100 - np.mean(fitnesses) - np.std(fitnesses)
     return fitnesses
 
@@ -202,7 +203,7 @@ if __name__ == "__main__":
         sigmas_pop =  np.random.normal(0,1,(pop_size, n_vars))
 
         fit_pop = evaluate(pop)
-        fit_pop = np.mean(fit_pop, axis=1)
+        fit_pop = np.mean(fit_pop, axis=1) - np.std(fit_pop, axis=1)
         best = np.argmax(fit_pop)
         mean = np.mean(fit_pop)
         std = np.std(fit_pop)
@@ -220,7 +221,9 @@ if __name__ == "__main__":
 
         # starting the actual evolution
         last_sol = fit_pop[best] # best result of the first generation
+        doom = 0
         notimproved = 0 # part of purge
+        stop = False
 
         for i in range(ini_g+1, gens):
             # create offspring
@@ -253,7 +256,7 @@ if __name__ == "__main__":
             #         # print("ha")
             #     arch = archive(arch, fit_off)
             # print(arch)
-            fit_offspring = np.mean(fit_offspring, axis=1)
+            fit_offspring = np.mean(fit_offspring, axis=1) - np.std(fit_offspring, axis=1)
             # print(fit_offspring)
             # fit_offspring = np.array(fit_offspring)
             # print(fit_offspring)
@@ -271,10 +274,10 @@ if __name__ == "__main__":
             fit_pop = total_fit[chosen]
 
             # purge part of the population every 10 generations
-            notimproved += 1
-            if notimproved >= 10:
+            doom += 1
+            if doom >= 10:
                 pop, sigmas_pop, fit_pop = purge(pop, sigmas_pop, fit_pop)
-                notimproved = 0
+                doom = 0
 
             best = np.argmax(fit_pop)   # highest fitness in the new population
             std = np.std(fit_pop)       # std of fitness in the new population
@@ -283,6 +286,16 @@ if __name__ == "__main__":
             if fit_pop[best] >= total_best_fitness:
                 total_best = pop[best]
                 total_best_fitness = fit_pop[best]
+
+            if abs(fit_pop[best] - last_sol) < threshold:
+                notimproved += 1
+            else:
+                last_sol = fit_pop[best]
+                notimproved = 0
+
+            if notimproved >= 5:
+                print("No more improvement")
+                stop = True
 
             # save results
             file_aux  = open(experiment_name+'/results.txt','a')
@@ -303,15 +316,12 @@ if __name__ == "__main__":
             env.update_solutions(solutions)
             env.save_state()
 
+            if stop:
+                break
+
         # end timer and print
         fim = time.time()
         print( '\nExecution time: '+str(round((fim-ini)/60))+' minutes \n')
-
-        print(arch)
-
-        plt.scatter(arch[:,0], arch[:,1])
-        plt.savefig('test.png')
-        plt.show()
 
         file = open(experiment_name+'/neuroended', 'w')  # saves control (simulation has ended) file for bash loop file
         file.close()
