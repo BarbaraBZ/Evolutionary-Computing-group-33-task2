@@ -93,7 +93,7 @@ def sim(x):
         ehealth.append(eh)
         time.append(t)
     # fit_measure = 100 - np.mean(ehealth) - np.std(ehealth)
-    fitnesses = [100-ehealth[i] for i in range(len(env.enemies))]
+    fitnesses = [phealth[i]-ehealth[i] for i in range(len(env.enemies))]
     # fit_measure = 100 - np.mean(fitnesses) - np.std(fitnesses)
     return fitnesses
 
@@ -120,8 +120,7 @@ def lims(weight):
 #     return mutated
 
 def mutate(offspring, gen):
-    T = 30 # total number of generations
-    t = ini_g # current generation
+    T = gens # total number of generations
     mean = 0
     mutated = offspring
     for i in range(0, len(offspring[0])):
@@ -129,7 +128,6 @@ def mutate(offspring, gen):
         if x <= mutation:
             sigma = 0.2 - 0.19 * gen/T
             mutated[0][i] = offspring[0][i] + np.random.normal(mean, sigma)
-    print(sigma)
     return mutated
 
 # tournament for survivor selection
@@ -200,7 +198,7 @@ if __name__ == "__main__":
         #         # print("ha")
         #     arch = archive(arch, fit)
         # print(arch)
-        fit_pop = np.mean(fit_pop, axis=1)
+        fit_pop = np.mean(fit_pop, axis=1) - np.std(fit_pop, axis=1)
         best = np.argmax(fit_pop)
         mean = np.mean(fit_pop)
         std = np.std(fit_pop)
@@ -245,7 +243,7 @@ if __name__ == "__main__":
             #         # print("ha")
             #     arch = archive(arch, fit_off)
             # print(arch)
-            fit_offspring = np.mean(fit_offspring, axis=1)
+            fit_offspring = np.mean(fit_offspring, axis=1) - np.std(fit_offspring, axis=1)
             # print(fit_offspring)
             # fit_offspring = np.array(fit_offspring)
             # print(fit_offspring)
