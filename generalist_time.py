@@ -8,7 +8,7 @@ import time
 import concurrent.futures
 import matplotlib.pyplot as plt
 
-experiment_name = 'generalist_arch'
+experiment_name = 'test'
 if not os.path.exists(experiment_name):
     os.makedirs(experiment_name)
 
@@ -18,21 +18,18 @@ if headless:
     os.environ["SDL_VIDEODRIVER"] = "dummy"
 
 hidden = 10             # number of hidden nodes in the neural network
-pop_size = 10          # population size
+pop_size = 100          # population size
 gens = 30               # number of generations
 Li = -1                 # lower bound for network weights
 Ui = 1                  # upper bound for network weights
-mutation = 0.2          # mutation rate
-tournament_size = 5     # tournament size for survivor selection
+mutation = 0.25          # mutation rate
+tournament_size = 4     # tournament size for survivor selection
 kill_percentage = 0.25  # percentage of population to kill during purge
-runs = 1
-threshold = 0.5         # how close best solutions must be to be considered not improved
-arch_size = 20
-distance = 2
+runs = 10
 
 # initializes environment with ai player using random controller, playing against static enemy
 env = Environment(experiment_name=experiment_name,
-                  enemies=[4, 6],
+                  enemies=[3, 4, 6],
                   playermode='ai',
                   player_controller=player_controller(hidden),
                   enemymode="static",
@@ -52,37 +49,6 @@ run_mode = 'train'
 # number of weights for multilayer with 10 hidden neurons
 n_vars = (env.get_num_sensors()+1)*hidden + (hidden+1)*5
 
-# # check solution against pareto archive
-# def archive(arch, new):
-#     # for new in fit_vals:
-#     # i = arch[arch[:,0] < new[0]]
-#     # j = arch[arch[:,1] < new[1]]
-#     # cond = np.where((arch[:,0] >= new[0]-1) | (arch[:,1] >= new[1]-1))
-#     # if len(cond[0]) ==
-#     x = np.where((arch[:,0] < new[0]) & (arch[:,1] < new[1]))
-#     for i in range(len(x[0])):
-#         arch[x[0][i]] = np.zeros((1,2))
-#
-#     z = np.where(((arch[:,0] < new[0]) & (arch[:,1] <= new[1])) | (arch[:,0] <= new[0]) & (arch[:,1] < new[1]))
-#     if len(z[0])>0:
-#         # for i in len(arch.shape[0]):
-#
-#
-#         arch[z[0][0]] = new
-#         # for i in range(len(z[0])-1):
-#         #     arch[z[0][i+1]] = np.zeros((1,2))
-#     # print(arch)
-#     # print(arch)
-#     # if i.size > 0:
-#     #     if j.size > 0:
-#     #         print(z)
-#     #         print(new)
-#
-#     # add to np where:
-#         # & new[0]
-#
-#
-#     return arch
 
 # running a simulation
 def sim(x):
@@ -93,9 +59,7 @@ def sim(x):
         phealth.append(ph)
         ehealth.append(eh)
         time.append(t)
-    # fit_measure = 100 - np.mean(ehealth) - np.std(ehealth)
     fitnesses = [phealth[i]-ehealth[i] for i in range(len(env.enemies))]
-    # fit_measure = 100 - np.mean(fitnesses) - np.std(fitnesses)
     return fitnesses
 
 
@@ -109,17 +73,7 @@ def lims(weight):
         return weight
 
 
-# mutate an individual
-# def mutate(offspring):
-#     sigma = 0.1
-#     mean = 0
-#     mutated = offspring
-#     for i in range(0, len(offspring[0])):
-#         x = np.random.uniform(0, 1)
-#         if x <= mutation:
-#             mutated[0][i] = offspring[0][i] + np.random.normal(mean, sigma)
-#     return mutated
-
+# mutate an individual with time-dependent mutation
 def mutate(offspring, gen):
     T = gens # total number of generations
     mean = 0
@@ -130,6 +84,7 @@ def mutate(offspring, gen):
             sigma = 0.2 - 0.19 * gen/T
             mutated[0][i] = offspring[0][i] + np.random.normal(mean, sigma)
     return mutated
+
 
 # tournament for survivor selection
 def tournament(pop, fit_pop, k):
@@ -178,9 +133,8 @@ if __name__ == "__main__":
     file_aux  = open(experiment_name+'/results.txt','a')
     file_aux.write('run,gen,best,mean,std')
     file_aux.close()
-    arch = np.zeros((arch_size, 2))
     # loads file with the best solution for testing
-    for j in range(1, runs+1):
+    for j in range(3, runs+1):
         if run_mode =='test':
 
             bsol = np.loadtxt(experiment_name+'/best.txt')
@@ -194,11 +148,6 @@ if __name__ == "__main__":
 
         pop = np.random.uniform(Li, Ui, (pop_size, n_vars))
         fit_pop = evaluate(pop)
-        # for fit in fit_pop:
-        #     # if (np.abs(arch[:,0]) - np.abs(fit[0]) > distance).all() or (np.abs(fit[1] - arch[:,1]) > distance).all():
-        #         # print("ha")
-        #     arch = archive(arch, fit)
-        # print(arch)
         fit_pop = np.mean(fit_pop, axis=1) - np.std(fit_pop, axis=1)
         best = np.argmax(fit_pop)
         mean = np.mean(fit_pop)
@@ -218,8 +167,6 @@ if __name__ == "__main__":
         # starting the actual evolution
         last_sol = fit_pop[best] # best result of the first generation
         doom = 0 # part of purge
-        notimproved = 0
-        stop = False
 
         for i in range(ini_g+1, gens):
             # create offspring
@@ -240,16 +187,7 @@ if __name__ == "__main__":
             with concurrent.futures.ProcessPoolExecutor() as executor:
                 results = executor.map(sim, total_offspring)
                 fit_offspring = [result for result in results]
-                # print(fit_offspring)
-            # for fit_off in fit_offspring:
-            #     # if (np.abs(fit_off[0] - arch[:, 0]) > distance).all() or (np.abs(fit_off[1] - arch[:,1]) > distance).all():
-            #         # print("ha")
-            #     arch = archive(arch, fit_off)
-            # print(arch)
             fit_offspring = np.mean(fit_offspring, axis=1) - np.std(fit_offspring, axis=1)
-            # print(fit_offspring)
-            # fit_offspring = np.array(fit_offspring)
-            # print(fit_offspring)
             total_pop = np.vstack((pop, total_offspring))
             total_fit = np.append(fit_pop, fit_offspring)
             best = np.argmax(total_fit)
@@ -275,16 +213,6 @@ if __name__ == "__main__":
                 total_best = pop[best]
                 total_best_fitness = fit_pop[best]
 
-            if abs(fit_pop[best] - last_sol) < threshold:
-                notimproved += 1
-            else:
-                last_sol = fit_pop[best]
-                notimproved = 0
-
-            if notimproved >= 5:
-                print("No more improvement")
-                stop = True
-
             # save results
             file_aux  = open(experiment_name+'/results.txt','a')
             print( '\n RUN' + str(j) + '\n' + '\n GENERATION '+str(i)+' '+str(round(fit_pop[best],6))+' '+str(round(mean,6))+' '+str(round(std,6)))
@@ -303,9 +231,6 @@ if __name__ == "__main__":
             solutions = [pop, fit_pop]
             env.update_solutions(solutions)
             env.save_state()
-
-            if stop:
-                break
 
         # end timer and print
         fim = time.time()
