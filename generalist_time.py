@@ -6,7 +6,6 @@ import numpy as np
 import random
 import time
 import concurrent.futures
-import matplotlib.pyplot as plt
 
 experiment_name = 'test'
 if not os.path.exists(experiment_name):
